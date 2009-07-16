@@ -22,6 +22,11 @@ Net::FTP::Robust - download files over FTP
  Log::Report mode => 'VERBOSE';
  Log::Report mode => 'DEBUG';
 
+ # to catch all reports: errors, warnings, debugs etc
+ try { $ftp->get(...) } mode => 'DEBUG';
+ push @trace, $@->exceptions; # simply prints all
+ $@->reportFatal;             # re-cast real errors
+
 =head1 DESCRIPTION
 
 This module is specialized in (on the moment only) downloading large
@@ -143,8 +148,8 @@ will get copied from the source as well.
 
 =head1 SEE ALSO
 
-This module is part of Net-FTP-Robust distribution version 0.01,
-built on June 17, 2009. Website: F<http://perl.overmeer.net>
+This module is part of Net-FTP-Robust distribution version 0.02,
+built on July 16, 2009. Website: F<http://perl.overmeer.net>
 
 =head1 COPYRIGHTS
 
