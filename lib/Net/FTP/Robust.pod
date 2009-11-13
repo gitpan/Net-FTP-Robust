@@ -46,8 +46,8 @@ Net::FTP::Robust-E<gt>B<new>(OPTIONS)
 =over 4
 
 Use to connect to one ftp-server.
-All OPTIONS are passed to Net::FTP method C<new()>.  These options
-all start with capitals.
+All B<OPTIONS which start with capitals> are passed to Net::FTP
+method C<new()>.
 
  Option        --Default
  host            <undef>
@@ -61,7 +61,7 @@ all start with capitals.
 
 =over 4
 
-Alternative for the C<Host> parameter provided by the base class.
+Alternative for the C<Host> parameter for Net::FTP subroutine new.
 
 =back
 
@@ -148,8 +148,8 @@ will get copied from the source as well.
 
 =head1 SEE ALSO
 
-This module is part of Net-FTP-Robust distribution version 0.02,
-built on July 16, 2009. Website: F<http://perl.overmeer.net>
+This module is part of Net-FTP-Robust distribution version 0.03,
+built on November 13, 2009. Website: F<http://perl.overmeer.net>.  See also L<Net::FTPSSL>.
 
 =head1 COPYRIGHTS
 

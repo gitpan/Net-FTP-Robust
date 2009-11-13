@@ -7,7 +7,7 @@ use strict;
 
 package Net::FTP::Robust;
 use vars '$VERSION';
-$VERSION = '0.02';
+$VERSION = '0.03';
 
 
 use Log::Report 'net-ftp-robust', syntax => 'SHORT';
@@ -44,10 +44,16 @@ sub init($)
        || sub { $_[2] =~ m/^\./ };  # UNIX hidden files
 
     $self->{ftp_opts}       = $args;
-
     $self;
 }
 
+
+sub _connect($)
+{   my ($self, $opts) = @_;
+    my $ftp  = Net::FTP->new(@$opts);
+    my $err  = defined $ftp ? undef : $@;
+    ($ftp, $err);
+}
 
 sub get($$)
 {   my ($self, $from, $to) = @_;
@@ -56,54 +62,57 @@ sub get($$)
         unless defined $to && length $to;
     $from =~ s,^/?,/,g;  # ensure leading /
 
-    my $retries = $self->{login_attempts};
+    my $retries = $self->{login_attempts} || 1_000_000;
     my $success = 0;
 
-    for(my $attempt = 1; not $success; $attempt++)
+  ATTEMPT:   # see continue block at end
+#   for(my $attempt = 1; not $success; $attempt++)
+    foreach my $attempt (1..$retries)
     {   info __x"connection attempt {nr}{max}"
           , nr => $attempt, max => ($retries ? " of $retries" : '')
             if $attempt != 1;
 
-        my $ftp = Net::FTP->new( %{$self->{ftp_opts}} );
-        if(!$ftp)
-        {   notice __x"cannot establish contact: {err}", err => $@;
+        my ($ftp, $err) = $self->_connect($self->{ftp_opts});
+        unless($ftp)
+        {   notice __x"cannot establish contact: {err}", err => $err;
+            next ATTEMPT;
         }
-        elsif(! $ftp->login($self->{login_user}, $self->{login_password}))
+
+        unless( $ftp->login($self->{login_user}, $self->{login_password}))
         {   notice __x"login failed: {msg}", msg => $ftp->message;
-        }
-        else
-        {   $ftp->binary;
-
-            my ($dir, $base) = $from =~ m!^(?:(.*)/)?([^/]*)!;
-            if(! $ftp->cwd($dir))
-            {   notice __x"directory {dir} does not exist: {msg}"
-                   , dir => $dir, msg => $ftp->message;
-                $ftp->close;
-            }
-
-            my $stats   = $self->{stats}
-                        = { files => 0, new_files => 0, downloaded => 0 };
-            my $start   = [ gettimeofday ];
-            $success    = $self->_recurse($ftp, $dir, $base, $to);
-            my $elapsed = tv_interval $start;
-
-            $success
-                or notice __x"attempt {nr} unsuccessful", nr => $attempt;
-
-            info __x"Got {new} new files, {size} in {secs}s avg {speed}/s"
-              , new   => $stats->{new_files}
-              , total => $stats->{files}
-              , size  => size_short($stats->{downloaded})
-              , secs  => sprintf("%7.3s", $elapsed)
-              , speed => size_short($stats->{downloaded} / $elapsed);
-
-            $ftp->close;
+            next ATTEMPT;
         }
 
-        my $last_attempt = $retries!=0 && $attempt >= $retries;
-        last if $success || $last_attempt;
+        $ftp->binary;
+        my ($dir, $base) = $from =~ m!^(?:(.*)/)?([^/]*)!;
+        if($ftp->cwd($dir))
+        {   notice __x"directory {dir} does not exist: {msg}"
+              , dir => $dir, msg => $ftp->message;
+            next ATTEMPT;
+        }
 
-        sleep $self->{login_delay};
+        my $stats   = $self->{stats}
+                    = { files => 0, new_files => 0, downloaded => 0 };
+        my $start   = [ gettimeofday ];
+        $success    = $self->_recurse($ftp, $dir, $base, $to);
+        my $elapsed = tv_interval $start;
+
+        $success
+            or notice __x"attempt {nr} unsuccessful", nr => $attempt;
+
+        info __x"Got {new} new files, {size} in {secs}s avg {speed}/s"
+          , new   => $stats->{new_files}
+          , total => $stats->{files}
+          , size  => size_short($stats->{downloaded})
+          , secs  => int($elapsed)
+          , speed => size_short($stats->{downloaded} / $elapsed);
+
+        $ftp->close;
+
+        last if $success;
+    }
+    continue
+    {   sleep $self->{login_delay};
     }
 
     $success;
@@ -127,7 +136,11 @@ sub _recurse($$$$)
 
         $full .= '/' if $full ne '/';
         my $success = $self->_get_directory($ftp, $full, $to);
-        $ftp->cdup;
+        unless($success)
+        {   $success = $ftp->cdup
+                or notice "cannot go cdup to {dir}: {msg}"
+                     , dir => $dir, msg => $ftp->message;
+        }
         return $success;
     }
 
@@ -136,7 +149,7 @@ sub _recurse($$$$)
 
 sub _get_directory($$$)
 {   my ($self, $ftp, $where, $to) = @_;
-    my @entries = $ftp->ls;
+    my @entries = $ftp->nlst;
 
     trace "directory $where has ".@entries. " entries";
 
@@ -148,6 +161,12 @@ sub _get_directory($$$)
     1;
 }
 
+# Different in Net::FTPSSL
+sub _modif_time($$)
+{   my ($self, $ftp, $fn) = @_;
+    $ftp->mdtm($fn) || 0;
+}
+    
 sub _get_file($$$$)
 {   my ($self, $ftp, $dir, $base, $to) = @_;
 
@@ -155,7 +174,7 @@ sub _get_file($$$$)
     my $local_name  = "$to/$base";
     my $local_temp  = "$to/.$base";
 
-    my $remote_mtime = $ftp->mdtm($base) || 0;
+    my $remote_mtime = $self->_modif_time($ftp, $base);
     my $stats        = $self->{stats};
     $stats->{files}++;
 
@@ -163,17 +182,17 @@ sub _get_file($$$$)
     {   # file already downloaded, still valid?
         if(! -f $local_name)
         {   # not downloadable
-            error __x"download file {fn}, but exists as something else"
+            notice __x"download file {fn}, but already exists as non-file"
               , fn => $local_name;
         }
 
         my $local_mtime = (stat $to)[9];
-        if($local_mtime >= $remote_mtime)
+        if($remote_mtime && $local_mtime >= $remote_mtime)
         {   trace "file $remote_name already downloaded";
             return 1;
         }
 
-        trace "local file $local_name mtime $remote_mtime is outdated";
+        trace "local file $local_name is outdated";
         # continue as if the file does not exist
     }
 
