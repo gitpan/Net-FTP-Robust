@@ -7,7 +7,7 @@ use strict;
 
 package Net::FTP::Robust;
 use vars '$VERSION';
-$VERSION = '0.05';
+$VERSION = '0.06';
 
 
 use Log::Report 'net-ftp-robust', syntax => 'SHORT';
@@ -66,7 +66,6 @@ sub get($$)
     my $success = 0;
 
   ATTEMPT:   # see continue block at end
-#   for(my $attempt = 1; not $success; $attempt++)
     foreach my $attempt (1..$retries)
     {   info __x"connection attempt {nr}{max}"
           , nr => $attempt, max => ($retries ? " of $retries" : '')
@@ -154,9 +153,11 @@ sub _recurse($$$$)
     $self->_get_file($ftp, $dir, $entry, $to);
 }
 
+sub _ls($) { $_[1]->ls }
+
 sub _get_directory($$$)
 {   my ($self, $ftp, $where, $to) = @_;
-    my @entries = $ftp->nlst;
+    my @entries = $self->_ls($ftp);
 
     trace "directory $where has ".@entries. " entries";
 
