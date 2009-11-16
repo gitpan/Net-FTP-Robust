@@ -7,7 +7,7 @@ use strict;
 
 package Net::FTP::Robust;
 use vars '$VERSION';
-$VERSION = '0.04';
+$VERSION = '0.05';
 
 
 use Log::Report 'net-ftp-robust', syntax => 'SHORT';
@@ -50,7 +50,7 @@ sub init($)
 
 sub _connect($)
 {   my ($self, $opts) = @_;
-    my $ftp  = Net::FTP->new(@$opts);
+    my $ftp  = Net::FTP->new(%$opts);
     my $err  = defined $ftp ? undef : $@;
     ($ftp, $err);
 }
