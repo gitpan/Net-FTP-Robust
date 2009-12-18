@@ -7,7 +7,7 @@ use strict;
 
 package Net::FTP::Robust;
 use vars '$VERSION';
-$VERSION = '0.06';
+$VERSION = '0.07';
 
 
 use Log::Report 'net-ftp-robust', syntax => 'SHORT';
@@ -142,7 +142,7 @@ sub _recurse($$$$)
 
         $full .= '/' if $full ne '/';
         my $success = $self->_get_directory($ftp, $full, $to);
-        unless($success)
+        if($success)
         {   $success = $ftp->cdup
                 or notice "cannot go cdup to {dir}: {msg}"
                      , dir => $dir, msg => $ftp->message;
@@ -225,21 +225,28 @@ sub _get_file($$$$)
        = $self->_can_restart($ftp, $local_name, $local_temp, $expected_size)
           or trace "get " . size_short($expected_size). " for $local_name";
  
-    my $start   = [ gettimeofday ];
-    my $success = $ftp->get($base, $local_temp);
-    my $elapsed = tv_interval $start;
-
-    my $downloaded = ( -s $local_temp || 0) - $got_size;
-
-    if(defined $downloaded)
-    {   info __x"{amount} in {secs}s is {speed}/s: {fn}"
-         , amount => size_short($downloaded)
-         , secs => sprintf("%7.3f", $elapsed)
-         , speed  => size_short($downloaded/$elapsed), fn => $base;
-        $stats->{downloaded} += $downloaded;
+    my $success;
+    if(defined $expected_size && $expected_size==$got_size)
+    {   # download succesful, but mv or close was not
+        $success = 1;
     }
     else
-    {   notice __x"failed to get any bytes from {fn}", fn => $local_name;
+    {   my $start   = [ gettimeofday ];
+        $success    = $ftp->get($base, $local_temp);
+        my $elapsed = tv_interval $start;
+
+        my $downloaded = (-s $local_temp || 0) - $got_size;
+
+        if($downloaded)
+        {   info __x"{amount} in {secs}s is {speed}/s: {fn}"
+             , amount => size_short($downloaded)
+             , secs => sprintf("%7.3f", $elapsed)
+             , speed  => size_short($downloaded/$elapsed), fn => $base;
+            $stats->{downloaded} += $downloaded;
+        }
+        else
+        {   notice __x"failed to get any bytes from {fn}", fn => $local_name;
+        }
     }
 
     if($success)

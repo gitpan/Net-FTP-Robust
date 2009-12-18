@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:                Net-FTP-Robust
-version:             0.06
+version:             0.07
 abstract:            download directories over unencrypted FTP
 license:             perl
 author:              
