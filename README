@@ -1,5 +1,5 @@
-=== README for Net-FTP-Robust version 0.07
-=   Generated on Fri Dec 18 22:54:56 2009 by OODoc 1.06
+=== README for Net-FTP-Robust version 0.08
+=   Generated on Mon Feb  1 11:40:41 2010 by OODoc 1.06
 
 There are various ways to install this module:
 
@@ -9,16 +9,16 @@ There are various ways to install this module:
  (2) if you use Windows, have a look at http://ppm.activestate.com/
 
  (3) if you have downloaded this module manually (as root/administrator)
-       gzip -d Net-FTP-Robust-0.07.tar.gz
-       tar -xf Net-FTP-Robust-0.07.tar
-       cd Net-FTP-Robust-0.07
+       gzip -d Net-FTP-Robust-0.08.tar.gz
+       tar -xf Net-FTP-Robust-0.08.tar
+       cd Net-FTP-Robust-0.08
        perl Makefile.PL
        make          # optional
        make test     # optional
        make install
 
 For usage, see the included manual-pages or
-    http://search.cpan.org/dist/Net-FTP-Robust-0.07/
+    http://search.cpan.org/dist/Net-FTP-Robust-0.08/
 
 Please report problems to
     http://rt.cpan.org/Dist/Display.html?Queue=Net-FTP-Robust

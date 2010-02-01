@@ -1,4 +1,4 @@
-# Copyrights 2009 by Mark Overmeer.
+# Copyrights 2009-2010 by Mark Overmeer.
 #  For other contributors see ChangeLog.
 # See the manual pages for details on the licensing terms.
 # Pod stripped from pm file by OODoc 1.06.
@@ -7,7 +7,7 @@ use strict;
 
 package Net::FTP::Robust;
 use vars '$VERSION';
-$VERSION = '0.07';
+$VERSION = '0.08';
 
 
 use Log::Report 'net-ftp-robust', syntax => 'SHORT';
@@ -176,7 +176,7 @@ sub _modif_time($$)
 }
     
 sub _can_restart($$$$)
-{   my ($ftp, $name, $temp, $expected_size) = @_;
+{   my ($self, $ftp, $name, $temp, $expected_size) = @_;
     my $got_size = -s $temp || 0;
     $got_size or return 0;
 
@@ -229,6 +229,11 @@ sub _get_file($$$$)
     if(defined $expected_size && $expected_size==$got_size)
     {   # download succesful, but mv or close was not
         $success = 1;
+        if($expected_size==0)
+        {   open OUT, '>', $local_temp
+                or fault __x"cannot create empty {file}", file => $local_temp;
+            close OUT;
+        }
     }
     else
     {   my $start   = [ gettimeofday ];
